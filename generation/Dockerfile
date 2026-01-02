@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jdk
+FROM eclipse-temurin:21-jdk
 
 WORKDIR /app
 
@@ -15,3 +15,8 @@ EXPOSE 8080
 
 # Use the exact jar name (NO wildcard)
 CMD ["java", "-jar", "target/generation-0.0.1-SNAPSHOT.jar"]
+
+
+### 1. Create a `.dockerignore` file
+# Add this to your root directory to speed up builds and reduce image size:
+
