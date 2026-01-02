@@ -1,60 +1,81 @@
 package com.invoice.generation.Service;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.util.Base64;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import jakarta.mail.internet.MimeMessage;
+import okhttp3.*;
 
 @Service
 public class EmailService {
 
-    @Autowired
+    @Value("${resend.api.key}")
+    private String apiKey;
 
-    private final JavaMailSender mailSender;
+    @Value("${email.from}")
+    private String from;
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
-    }
+    @Value("${email.cc:}")
+    private String cc;
 
-    public void sendInvoice(String to, String pdfPath, String customerName,String invoiceStatus, String date) {
+    @Value("${email.bcc:}")
+    private String bcc;
+
+    private static final String RESEND_URL = "https://api.resend.com/emails";
+
+    public void sendInvoice(String to, String pdfPath, String customerName,
+                            String invoiceStatus, String date) {
 
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            String subject
-                    = "Thank You | " +customerName+" | "+invoiceStatus +" | " + date;
+            byte[] pdfBytes = Files.readAllBytes(new File(pdfPath).toPath());
+            String base64Pdf = Base64.getEncoder().encodeToString(pdfBytes);
 
-            helper.setTo(to);
-            helper.setCc("thetinkoritales@gmail.com");
-            helper.setBcc(new String[]{
-                "sandipanray1123@gmail.com",
-                "nilanjanadebnath04@gmail.com",
-                "diptimoy2003@gmail.com",
-                
-            });
-
-            helper.setSubject(subject);
-            helper.setText(
-                    "Hi " + customerName + ",\n\n"
-                    + "Thank you for choosing The Tinkori Tales.\n"+
-                    "Invoice Status: "+invoiceStatus+"\n"
-                    + "Your invoice is attached with this email.\n\n"
-                    + "Warm regards,\n"
-                    + "The Tinkori Tales \n\n"
-                    + "Finance & Acccounts\n"
-                    +"Diptimoy Hazra"
+            String json = """
+            {
+              "from": "%s",
+              "to": ["%s"],
+              "cc": [%s],
+              "bcc": [%s],
+              "subject": "Invoice - %s",
+              "html": "<p>Hi %s,<br/>Your invoice (%s) dated %s is attached.</p>",
+              "attachments": [
+                {
+                  "filename": "invoice.pdf",
+                  "content": "%s"
+                }
+              ]
+            }
+            """.formatted(
+                    from,
+                    to,
+                    wrap(cc),
+                    wrap(bcc),
+                    invoiceStatus,
+                    customerName,
+                    invoiceStatus,
+                    date,
+                    base64Pdf
             );
 
-            helper.addAttachment("invoice.pdf", new File(pdfPath));
-            mailSender.send(message);
+            Request request = new Request.Builder()
+                    .url(RESEND_URL)
+                    .post(RequestBody.create(json, MediaType.parse("application/json")))
+                    .addHeader("Authorization", "Bearer " + apiKey)
+                    .build();
+
+            OkHttpClient client = new OkHttpClient();
+            client.newCall(request).execute();
 
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException("Email sending failed", e);
         }
     }
 
+    private String wrap(String value) {
+        if (value == null || value.isBlank()) return "";
+        return "\"" + value + "\"";
+    }
 }
