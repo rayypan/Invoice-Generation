@@ -27,7 +27,7 @@ public class EmailService {
     private static final String RESEND_URL = "https://api.resend.com/emails";
 
     public void sendInvoice(String to, String pdfPath, String customerName,
-                            String invoiceStatus, String date) {
+            String invoiceStatus, String date) {
 
         try {
             byte[] pdfBytes = Files.readAllBytes(new File(pdfPath).toPath());
@@ -75,7 +75,15 @@ public class EmailService {
     }
 
     private String wrap(String value) {
-        if (value == null || value.isBlank()) return "";
-        return "\"" + value + "\"";
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+
+        return java.util.Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(email -> "\"" + email + "\"")
+                .collect(java.util.stream.Collectors.joining(","));
     }
+
 }
