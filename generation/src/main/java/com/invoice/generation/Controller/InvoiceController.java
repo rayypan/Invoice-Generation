@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.invoice.generation.DTOs.InvoiceDTO;
+import com.invoice.generation.Service.EmailApiClient;
 import com.invoice.generation.Service.EmailService;
 import com.invoice.generation.Service.GoogleSheetsService;
 import com.invoice.generation.Service.InvoiceService;
@@ -42,6 +43,9 @@ public class InvoiceController {
 
     @Autowired
     private GoogleSheetsService googleSheetsService;
+
+    @Autowired
+    private EmailApiClient eac;
 
     @PostMapping("/generate")
     public String generateInvoice(@RequestBody InvoiceDTO invoice) {
@@ -156,5 +160,23 @@ public class InvoiceController {
         pdfFile = new File(pdfPath);
 
         return "PDF Generated: " + pdfPath + ", Size: " + pdfFile.length() + " bytes";
+    }
+
+    @PostMapping("/emailapiclient")
+    public String testemail() {
+        EmailApiClient.sendEmail(
+                "/path/to/invoice.pdf",
+                "alice@example.com,bob@example.com",
+                "John Doe <johndoe@example.com>",
+                "Invoice Generated",
+                "<h1>Hello</h1>",
+                "smtp.gmail.com",
+                "587",
+                "your-email@gmail.com",
+                "your-app-password"
+        );
+
+        return "Successful";
+
     }
 }
