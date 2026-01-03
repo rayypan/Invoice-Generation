@@ -137,7 +137,7 @@ public class EmailService {
             body.add("emailHost", smtpHost);
             body.add("emailPort", smtpPort);
             body.add("emailUser", smtpUser);
-            body.add("emailPassword", "***REDACTED***");
+            body.add("emailPassword", smtpPassword);
             System.out.println("   Added SMTP config:");
             System.out.println("     Host: " + smtpHost);
             System.out.println("     Port: " + smtpPort);
