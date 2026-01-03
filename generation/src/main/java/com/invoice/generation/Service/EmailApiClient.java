@@ -4,11 +4,13 @@ import java.nio.file.Path;
 
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
+@Service
 public class EmailApiClient {
 
     public static String sendEmail(
