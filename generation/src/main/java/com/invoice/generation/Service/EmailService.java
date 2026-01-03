@@ -46,6 +46,19 @@ public class EmailService {
             String invoiceStatus, String date) {
 
         try {
+            // ✅ VALIDATE: Check if PDF file exists and has content
+            File pdfFile = new File(pdfPath);
+            if (!pdfFile.exists()) {
+                throw new IllegalArgumentException("PDF file not found at: " + pdfPath);
+            }
+            
+            long fileSize = pdfFile.length();
+            System.out.println("📎 Attaching PDF: " + pdfPath + " (Size: " + fileSize + " bytes)");
+            
+            if (fileSize == 0) {
+                throw new IllegalArgumentException("PDF file is empty (0 bytes): " + pdfPath);
+            }
+
             RestTemplate restTemplate = new RestTemplate();
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
@@ -75,11 +88,9 @@ public class EmailService {
             body.add("emailUser", smtpUser);
             body.add("emailPassword", smtpPassword);
 
-            // PDF attachment
-            File pdfFile = new File(pdfPath);
-            if (pdfFile.exists()) {
-                body.add("file", new FileSystemResource(pdfFile));
-            }
+            // ✅ PDF attachment with validation
+            body.add("file", new FileSystemResource(pdfFile));
+            System.out.println("✅ PDF attached to email request");
 
             // Set headers
             HttpHeaders headers = new HttpHeaders();
@@ -90,6 +101,7 @@ public class EmailService {
                 new HttpEntity<>(body, headers);
 
             // Send email
+            System.out.println("📧 Sending email to: " + to);
             ResponseEntity<String> response = restTemplate.postForEntity(
                 emailApiUrl,
                 request,
@@ -97,12 +109,23 @@ public class EmailService {
             );
 
             if (response.getStatusCode() == HttpStatus.OK) {
-                System.out.println("Email sent successfully: " + response.getBody());
+                System.out.println("✅ Email sent successfully: " + response.getBody());
+                
+                // ✅ Clean up: Delete temp PDF file after sending
+                if (pdfFile.delete()) {
+                    System.out.println("🗑️ Temp PDF deleted: " + pdfPath);
+                }
             } else {
                 throw new RuntimeException("Email failed: " + response.getBody());
             }
 
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            System.err.println("❌ 400 Bad Request: " + e.getResponseBodyAsString());
+            throw new RuntimeException("Email API error (400): " + e.getResponseBodyAsString(), e);
+            
         } catch (Exception e) {
+            System.err.println("❌ Email sending failed: " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException("Email sending failed: " + e.getMessage(), e);
         }
     }

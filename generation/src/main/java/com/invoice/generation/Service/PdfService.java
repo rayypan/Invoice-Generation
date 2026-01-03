@@ -1,5 +1,6 @@
 package com.invoice.generation.Service;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -26,7 +27,7 @@ public class PdfService {
         String date = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm"));
 
-        // ✅ calculate subtotal (after item discount, before overall)
+        // ✅ Calculate subtotal
         double subtotal = 0;
         for (ItemDTO item : invoice.items) {
             double itemTotal = item.price * item.quantity;
@@ -49,9 +50,6 @@ public class PdfService {
         context.setVariable("paymentMethod", invoice.paymentMethod);
         context.setVariable("paymentDetails", invoice.paymentDetails);
         context.setVariable("issuedBy", invoice.issuedBy);
-
-        context.setVariable("items", invoice.items);
-        context.setVariable("amount", amount);
         context.setVariable("items", invoice.items);
         context.setVariable("amount", amount);
         context.setVariable("name", invoice.customerName);
@@ -62,18 +60,45 @@ public class PdfService {
         context.setVariable("ownerMessage", invoice.ownerMessage);
 
         String html = templateEngine.process("invoice", context);
-        String path = "invoice.pdf";
+
+        // ✅ Use system temp directory instead of current directory
+        String tempDir = System.getProperty("java.io.tmpdir");
+        String fileName = "invoice_" + System.currentTimeMillis() + ".pdf";
+        String path = tempDir + File.separator + fileName;
+
+        System.out.println("🔍 Generating PDF at: " + path);
 
         try (FileOutputStream os = new FileOutputStream(path)) {
 
             PdfRendererBuilder builder = new PdfRendererBuilder();
-            builder.withHtmlContent(html, getClass().getResource("/").toExternalForm());
+            
+            // ✅ Get base URL for resources (for images in template)
+            String baseUrl = getClass().getResource("/").toExternalForm();
+            builder.withHtmlContent(html, baseUrl);
 
             builder.toStream(os);
             builder.run();
 
+            // ✅ Force flush and close
+            os.flush();
+
         } catch (Exception e) {
+            System.err.println("❌ PDF generation failed: " + e.getMessage());
             e.printStackTrace();
+            throw new RuntimeException("Failed to generate PDF", e);
+        }
+
+        // ✅ VALIDATE: Check if PDF was actually created and has content
+        File pdfFile = new File(path);
+        if (!pdfFile.exists()) {
+            throw new RuntimeException("PDF file was not created at: " + path);
+        }
+        
+        long fileSize = pdfFile.length();
+        System.out.println("✅ PDF generated successfully. Size: " + fileSize + " bytes");
+        
+        if (fileSize == 0) {
+            throw new RuntimeException("PDF file is empty (0 bytes). Check template and resources.");
         }
 
         return path;
