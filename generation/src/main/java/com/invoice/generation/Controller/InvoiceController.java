@@ -22,6 +22,7 @@ import com.invoice.generation.Service.EmailApiClient;
 import com.invoice.generation.Service.EmailService;
 import com.invoice.generation.Service.GoogleSheetsService;
 import com.invoice.generation.Service.InvoiceService;
+import com.invoice.generation.Service.MailerooEmailService;
 import com.invoice.generation.Service.PdfService;
 
 @CrossOrigin(
@@ -47,6 +48,8 @@ public class InvoiceController {
     @Autowired
     private EmailApiClient eac;
 
+    @Autowired MailerooEmailService mailemailservice;
+
     @PostMapping("/generate")
     public String generateInvoice(@RequestBody InvoiceDTO invoice) {
 
@@ -56,7 +59,7 @@ public class InvoiceController {
         double amount = invoiceService.calculatePayable(invoice);
 
         String pdfPath = pdfService.generatePdf(invoice, amount);
-        emailService.sendInvoice(invoice.customerEmail, pdfPath, invoice.customerName, invoice.invoiceStatus, date);
+        mailemailservice.sendInvoice(invoice.customerEmail, pdfPath, invoice.customerName, invoice.invoiceStatus, date);
 
         String itemsSummary = invoice.items.stream()
                 .map(item

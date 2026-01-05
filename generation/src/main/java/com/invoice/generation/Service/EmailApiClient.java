@@ -13,7 +13,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
 public class EmailApiClient {
-     @Value("${email.api.url}")
+
+    @Value("${email.api.url}")
     private String emailApiUrl;
 
     @Value("${email.smtp.host}")
@@ -43,26 +44,32 @@ public class EmailApiClient {
             String html
     ) {
 
-        WebClient client = WebClient.create();
-
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("from", smtpUser); // John Doe <johndoe@example.com>
+
+        body.add("to", cc);
+        body.add("bcc",bcc);
+        body.add("from", from);
         body.add("subject", subject);
         body.add("html", html);
-
         body.add("emailHost", smtpHost);
         body.add("emailPort", smtpPort);
         body.add("emailUser", smtpUser);
         body.add("emailPassword", smtpPassword);
+        FileSystemResource filetmp = new FileSystemResource(filePath);
+        body.add("file", filetmp);
+        System.out.println(body);
 
-        body.add("file", new FileSystemResource(Path.of(filePath)));
-
-        return client.post()
-                .uri("https://generic-email-service.vercel.app/api/v1/email")
+        String response = WebClient.create()
+                .post()
+                .uri(emailApiUrl)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(BodyInserters.fromMultipartData(body))
                 .retrieve()
                 .bodyToMono(String.class)
                 .block();
+
+        return response;
+
+        
     }
 }

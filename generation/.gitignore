@@ -37,3 +37,5 @@ application.yml
 credentials.json
 .env
 .log
+EmailApiClient.java
+EmailService.java
