@@ -149,7 +149,7 @@ public class MailerooEmailService {
                 "Invoice Status:%s\n\n" +
                 "Best regards,\n" +
                 "The Tinkori Tales\n\n"+
-                "Diptimoy Hazra"+
+                "Diptimoy Hazra\n"+
                 "Finance & Accounts",
                 customerName, invoiceStatus
             );
