@@ -25,19 +25,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Primary
 public class MailerooEmailService {
 
-    @Value("${maileroo.api.url:https://smtp.maileroo.com/api/v2/emails}")
+    @Value("${maileroo.api.url}")
     private String mailerooApiUrl;
 
     @Value("${maileroo.api.key}")
     private String apiKey;
 
-    @Value("${email.from}")
-    private String from;
+    @Value("${email.from.address}")
+    private String fromAddress;
 
-    @Value("${email.cc:}")
+    @Value("${email.from.display}")
+    private String fromDisplay;
+
+    @Value("${email.cc}")
     private String cc;
 
-    @Value("${email.bcc:}")
+    @Value("${email.bcc}")
     private String bcc;
 
     public void sendEmailWithInvoice(String to, String pdfPath, String customerName,
@@ -69,40 +72,33 @@ public class MailerooEmailService {
             String base64Content = Base64.getEncoder().encodeToString(fileBytes);
             System.out.println("✅ Base64 Length: " + base64Content.length());
 
-            // STEP 3: Build JSON payload - EXACT Maileroo format
+            // STEP 3: Build JSON payload - EXACT format that works in Postman
             System.out.println("🔵 STEP 3: Building Maileroo API payload");
             Map<String, Object> payload = new HashMap<>();
 
-            // FROM (required) - object with address and display_name
+            // FROM - object with address and display_name
             Map<String, String> fromObject = new HashMap<>();
-            if (from.contains("<")) {
-                String displayName = from.substring(0, from.indexOf("<")).trim();
-                String address = from.substring(from.indexOf("<") + 1, from.indexOf(">")).trim();
-                fromObject.put("address", address);
-                fromObject.put("display_name", displayName);
-            } else {
-                fromObject.put("address", from);
-                fromObject.put("display_name", "The Tinkori Tales");
-            }
+            fromObject.put("address", fromAddress);
+            fromObject.put("display_name", fromDisplay);
             payload.put("from", fromObject);
             System.out.println("   from: " + fromObject);
 
-            // TO (required) - array of objects
+            // TO - array with only address (no display_name like in your working Postman)
             List<Map<String, String>> toArray = new ArrayList<>();
             Map<String, String> toObject = new HashMap<>();
             toObject.put("address", to);
-            toObject.put("display_name", customerName);
             toArray.add(toObject);
             payload.put("to", toArray);
             System.out.println("   to: " + toArray);
 
-            // CC (optional) - can be object or array
+            // CC - single object or array
             if (cc != null && !cc.isBlank()) {
                 String[] ccEmails = cc.split(",");
                 if (ccEmails.length == 1) {
                     Map<String, String> ccObject = new HashMap<>();
                     ccObject.put("address", ccEmails[0].trim());
                     payload.put("cc", ccObject);
+                    System.out.println("   cc: " + ccObject);
                 } else {
                     List<Map<String, String>> ccArray = new ArrayList<>();
                     for (String email : ccEmails) {
@@ -111,11 +107,11 @@ public class MailerooEmailService {
                         ccArray.add(ccObject);
                     }
                     payload.put("cc", ccArray);
+                    System.out.println("   cc: " + ccArray);
                 }
-                System.out.println("   cc: " + cc);
             }
 
-            // BCC (optional) - can be object or array
+            // BCC - array of objects
             if (bcc != null && !bcc.isBlank()) {
                 String[] bccEmails = bcc.split(",");
                 List<Map<String, String>> bccArray = new ArrayList<>();
@@ -125,14 +121,15 @@ public class MailerooEmailService {
                     bccArray.add(bccObject);
                 }
                 payload.put("bcc", bccArray);
-                System.out.println("   bcc: " + bcc);
+                System.out.println("   bcc: " + bccArray);
             }
 
-            // SUBJECT (required) - string
-            payload.put("subject", "Invoice - " + invoiceStatus);
-            System.out.println("   subject: Invoice - " + invoiceStatus);
+            // SUBJECT - string
+            String subject = "Invoice - " + invoiceStatus;
+            payload.put("subject", subject);
+            System.out.println("   subject: " + subject);
 
-            // HTML (required) - string
+            // HTML - string
             String htmlBody = String.format(
                 "<html><body>" +
                 "<p>Hi %s,</p>" +
@@ -144,7 +141,7 @@ public class MailerooEmailService {
             );
             payload.put("html", htmlBody);
 
-            // PLAIN (optional but recommended) - string
+            // PLAIN - string
             String plainBody = String.format(
                 "Hi %s,\n\n" +
                 "Your invoice (%s) dated %s is attached.\n\n" +
@@ -156,7 +153,11 @@ public class MailerooEmailService {
             payload.put("plain", plainBody);
             System.out.println("   html & plain: Added");
 
-            // ATTACHMENTS (optional) - array of objects
+            // TRACKING - boolean (like in your working Postman)
+            payload.put("tracking", true);
+            System.out.println("   tracking: true");
+
+            // ATTACHMENTS - array of objects
             List<Map<String, Object>> attachmentsArray = new ArrayList<>();
             Map<String, Object> attachmentObject = new HashMap<>();
             attachmentObject.put("file_name", "invoice_" + invoiceStatus + ".pdf");
@@ -166,13 +167,14 @@ public class MailerooEmailService {
             payload.put("attachments", attachmentsArray);
             System.out.println("   attachments: invoice_" + invoiceStatus + ".pdf");
 
-            // STEP 4: Convert to JSON and log
+            // STEP 4: Convert to JSON and log FULL payload
             System.out.println("🔵 STEP 4: Converting payload to JSON");
             ObjectMapper mapper = new ObjectMapper();
             String jsonPayload = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload);
-            System.out.println("📋 JSON PAYLOAD (first 500 chars):");
-            System.out.println(jsonPayload.substring(0, Math.min(500, jsonPayload.length())));
-            System.out.println("   [... truncated for readability]");
+            
+            System.out.println("\n📋 ============ FULL JSON PAYLOAD ============");
+            System.out.println(jsonPayload);
+            System.out.println("📋 ============================================\n");
 
             // STEP 5: Setup headers
             System.out.println("🔵 STEP 5: Setting up headers");
@@ -180,7 +182,7 @@ public class MailerooEmailService {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-API-Key", apiKey);
             System.out.println("   Content-Type: application/json");
-            System.out.println("   X-API-Key: " + (apiKey != null ? apiKey.substring(0, 10) + "..." : "NOT SET"));
+            System.out.println("   X-API-Key: " + (apiKey != null && apiKey.length() > 10 ? apiKey.substring(0, 10) + "..." : "NOT SET"));
 
             // STEP 6: Create HTTP request
             System.out.println("🔵 STEP 6: Creating HTTP request");
@@ -205,11 +207,13 @@ public class MailerooEmailService {
             if (response.getStatusCode() == HttpStatus.OK || 
                 response.getStatusCode() == HttpStatus.CREATED ||
                 response.getStatusCode() == HttpStatus.ACCEPTED) {
-                System.out.println("✅✅✅ EMAIL SENT SUCCESSFULLY ✅✅✅");
+                System.out.println("\n✅✅✅ EMAIL SENT SUCCESSFULLY ✅✅✅");
+                System.out.println("📧 Sent to: " + to);
+                System.out.println("📎 Attachment: invoice_" + invoiceStatus + ".pdf");
                 
                 // Delete temp PDF
                 if (pdfFile.delete()) {
-                    System.out.println("🗑️  Temp PDF deleted");
+                    System.out.println("🗑️  Temp PDF deleted: " + pdfPath);
                 }
             } else {
                 throw new RuntimeException("Unexpected status: " + response.getStatusCode());
@@ -219,15 +223,18 @@ public class MailerooEmailService {
             System.err.println("\n❌❌❌ MAILEROO API ERROR ❌❌❌");
             System.err.println("Status: " + e.getStatusCode());
             System.err.println("Response: " + e.getResponseBodyAsString());
-            System.err.println("\n💡 Troubleshooting:");
-            System.err.println("   1. Check MAILEROO_API_KEY env variable");
-            System.err.println("   2. Verify sender domain in Maileroo dashboard");
-            System.err.println("   3. Check email format is valid");
+            System.err.println("\n💡 Common Issues:");
+            System.err.println("   1. Wrong endpoint - should be /api/v2/emails NOT /send");
+            System.err.println("   2. API key not set (check MAILEROO_API_KEY)");
+            System.err.println("   3. Sender email must be Maileroo subdomain");
+            System.err.println("      Example: yourname@xxxxx.maileroo.org");
+            System.err.println("      NOT: yourname@gmail.com");
             System.err.println("========================================\n");
-            throw new RuntimeException("Maileroo error: " + e.getResponseBodyAsString(), e);
+            throw new RuntimeException("Maileroo API error: " + e.getResponseBodyAsString(), e);
             
         } catch (IOException e) {
             System.err.println("\n❌ FILE ERROR: " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException("PDF read failed: " + e.getMessage(), e);
             
         } catch (Exception e) {
