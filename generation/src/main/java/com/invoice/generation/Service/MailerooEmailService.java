@@ -4,6 +4,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
@@ -14,10 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Service
 @Primary  // This makes it the default EmailService implementation
@@ -38,7 +38,7 @@ public class MailerooEmailService {
     @Value("${email.bcc:}")
     private String bcc;
 
-    public void sendInvoice(String to, String pdfPath, String customerName,
+    public void sendEmailWithInvoice(String to, String pdfPath, String customerName,
             String invoiceStatus, String date) {
 
         System.out.println("\n========================================");
@@ -75,26 +75,13 @@ public class MailerooEmailService {
             String base64Content = Base64.getEncoder().encodeToString(fileBytes);
             System.out.println("✅ PDF encoded to Base64. Length: " + base64Content.length());
 
-            // ✅ STEP 5: Build JSON request body using Jackson
+            // ✅ STEP 5: Build JSON request body using Map (Maileroo format)
             System.out.println("🔵 STEP 5: Building Maileroo JSON request...");
-            ObjectMapper mapper = new ObjectMapper();
-            ObjectNode body = mapper.createObjectNode();
+            Map<String, Object> body = new HashMap<>();
 
-            // Add recipients
+            // Required fields
             body.put("to", to);
             System.out.println("   Added 'to': " + to);
-
-            // Add CC if present
-            if (cc != null && !cc.isBlank()) {
-                body.put("cc", cc);
-                System.out.println("   Added 'cc': " + cc);
-            }
-
-            // Add BCC if present
-            if (bcc != null && !bcc.isBlank()) {
-                body.put("bcc", bcc);
-                System.out.println("   Added 'bcc': " + bcc);
-            }
 
             body.put("from", from);
             System.out.println("   Added 'from': " + from);
@@ -102,39 +89,77 @@ public class MailerooEmailService {
             body.put("subject", "Invoice - " + invoiceStatus);
             System.out.println("   Added 'subject': Invoice - " + invoiceStatus);
             
+            // Email body
             String htmlBody = String.format(
-                "<p>Hi %s,<br/>Your invoice (%s) dated %s is attached.</p>",
+                "<html><body>" +
+                "<p>Hi %s,</p>" +
+                "<p>Your invoice (%s) dated %s is attached.</p>" +
+                "<p>Thank you for using The Tinkori Tales!</p>" +
+                "<p>Best regards,<br/>The Tinkori Tales Team</p>" +
+                "</body></html>",
                 customerName, invoiceStatus, date
             );
             body.put("html", htmlBody);
-            System.out.println("   Added 'html' body");
+            
+            // Also add plain text version for better compatibility
+            String textBody = String.format(
+                "Hi %s,\n\nYour invoice (%s) dated %s is attached.\n\n" +
+                "Thank you for using The Tinkori Tales!\n\n" +
+                "Best regards,\nThe Tinkori Tales Team",
+                customerName, invoiceStatus, date
+            );
+            body.put("text", textBody);
+            System.out.println("   Added 'html' and 'text' body");
+
+            // Optional: Add CC if present
+            if (cc != null && !cc.isBlank()) {
+                body.put("cc", cc);
+                System.out.println("   Added 'cc': " + cc);
+            }
+
+            // Optional: Add BCC if present
+            if (bcc != null && !bcc.isBlank()) {
+                body.put("bcc", bcc);
+                System.out.println("   Added 'bcc': " + bcc);
+            }
 
             // Add attachment
             System.out.println("🔵 STEP 6: Adding PDF attachment...");
-            ArrayNode attachments = mapper.createArrayNode();
-            ObjectNode attachment = mapper.createObjectNode();
-            attachment.put("filename", pdfFile.getName());
+            List<Map<String, String>> attachments = new ArrayList<>();
+            Map<String, String> attachment = new HashMap<>();
+            attachment.put("filename", "invoice_" + invoiceStatus + ".pdf");
             attachment.put("content", base64Content);
             attachment.put("type", "application/pdf");
             attachments.add(attachment);
-            body.set("attachments", attachments);
+            body.put("attachments", attachments);
             System.out.println("✅ PDF attachment added to JSON body");
+            System.out.println("   Attachment filename: invoice_" + invoiceStatus + ".pdf");
 
-            // ✅ STEP 7: Set headers with API key
-            System.out.println("🔵 STEP 7: Setting request headers...");
+            // Debug: Print the JSON structure
+            System.out.println("🔵 STEP 7: JSON Request Structure:");
+            System.out.println("   Keys in body: " + body.keySet());
+            System.out.println("   Subject value: " + body.get("subject"));
+            System.out.println("   From value: " + body.get("from"));
+            System.out.println("   To value: " + body.get("to"));
+
+            // ✅ STEP 8: Set headers with API key
+            System.out.println("🔵 STEP 8: Setting request headers...");
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("X-API-Key", apiKey);
-            System.out.println("✅ Headers set with Maileroo API Key");
+            headers.set("Accept", "application/json");
+            System.out.println("✅ Headers set:");
+            System.out.println("   Content-Type: application/json");
+            System.out.println("   X-API-Key: " + (apiKey != null && apiKey.length() > 10 ? apiKey.substring(0, 10) + "..." : "NOT SET"));
+            System.out.println("   Accept: application/json");
 
-            // ✅ STEP 8: Create request entity
-            System.out.println("🔵 STEP 8: Creating HTTP request entity...");
-            String jsonBody = mapper.writeValueAsString(body);
-            HttpEntity<String> request = new HttpEntity<>(jsonBody, headers);
+            // ✅ STEP 9: Create request entity
+            System.out.println("🔵 STEP 9: Creating HTTP request entity...");
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
             System.out.println("✅ Request entity created");
 
-            // ✅ STEP 9: Send request
-            System.out.println("🔵 STEP 9: Sending HTTP POST request to Maileroo API...");
+            // ✅ STEP 10: Send request
+            System.out.println("🔵 STEP 10: Sending HTTP POST request to Maileroo API...");
             System.out.println("   URL: " + mailerooApiUrl);
             
             RestTemplate restTemplate = new RestTemplate();
@@ -144,13 +169,16 @@ public class MailerooEmailService {
                 String.class
             );
 
-            System.out.println("🔵 STEP 10: Received response from Maileroo API");
+            System.out.println("🔵 STEP 11: Received response from Maileroo API");
             System.out.println("   Status Code: " + response.getStatusCode());
             System.out.println("   Response Body: " + response.getBody());
 
             if (response.getStatusCode() == HttpStatus.OK || 
-                response.getStatusCode() == HttpStatus.ACCEPTED) {
+                response.getStatusCode() == HttpStatus.ACCEPTED ||
+                response.getStatusCode() == HttpStatus.CREATED) {
                 System.out.println("✅✅✅ EMAIL SENT SUCCESSFULLY VIA MAILEROO ✅✅✅");
+                System.out.println("📧 Email sent to: " + to);
+                System.out.println("📎 Attachment: invoice_" + invoiceStatus + ".pdf");
                 
                 // Clean up temp file
                 if (pdfFile.delete()) {
@@ -168,6 +196,11 @@ public class MailerooEmailService {
             System.err.println("Response Status: " + e.getStatusCode());
             System.err.println("Response Body: " + e.getResponseBodyAsString());
             System.err.println("This means Maileroo API rejected our request");
+            System.err.println("\n🔍 Common issues:");
+            System.err.println("   1. API Key not set or invalid (check MAILEROO_API_KEY env var)");
+            System.err.println("   2. Sender email not verified in Maileroo dashboard");
+            System.err.println("   3. Invalid email format");
+            System.err.println("   4. Attachment too large (max 10MB)");
             System.err.println("========================================\n");
             throw new RuntimeException("Maileroo API error: " + e.getResponseBodyAsString(), e);
             
