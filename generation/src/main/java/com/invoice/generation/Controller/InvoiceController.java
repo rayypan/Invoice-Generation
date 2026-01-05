@@ -42,7 +42,7 @@ public class InvoiceController {
 
 
     @Autowired 
-    MailerooEmailService mailemailservice;
+    MailerooEmailService mailService;
 
     @PostMapping("/generate")
     public String generateInvoice(@RequestBody InvoiceDTO invoice) {
@@ -53,7 +53,7 @@ public class InvoiceController {
         double amount = invoiceService.calculatePayable(invoice);
 
         String pdfPath = pdfService.generatePdf(invoice, amount);
-        mailemailservice.sendEmailWithInvoice(invoice.customerEmail, pdfPath, invoice.customerName, invoice.invoiceStatus, date);
+        mailService.sendEmailWithInvoice(invoice.customerEmail, pdfPath, invoice.customerName, invoice.invoiceStatus, date);
 
         String itemsSummary = invoice.items.stream()
                 .map(item
