@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.invoice.generation.DTOs.InvoiceDTO;
+import com.invoice.generation.Service.GenericEmailService;
 import com.invoice.generation.Service.GoogleSheetsService;
 import com.invoice.generation.Service.InvoiceService;
 import com.invoice.generation.Service.MailerooEmailService;
@@ -44,6 +45,9 @@ public class InvoiceController {
     @Autowired 
     MailerooEmailService mailService;
 
+    @Autowired
+    GenericEmailService mail;
+
     @PostMapping("/generate")
     public String generateInvoice(@RequestBody InvoiceDTO invoice) {
 
@@ -53,8 +57,9 @@ public class InvoiceController {
         double amount = invoiceService.calculatePayable(invoice);
 
         String pdfPath = pdfService.generatePdf(invoice, amount);
-        mailService.sendEmailWithInvoice(invoice.customerEmail, pdfPath, invoice.customerName, invoice.invoiceStatus, date);
-
+        File pdfFile = new File(pdfPath);
+        // mailService.sendEmailWithInvoice(invoice.customerEmail, pdfPath, invoice.customerName, invoice.invoiceStatus, date);
+        mail.sendEmail(invoice.customerEmail,invoice.customerName,invoice.invoiceStatus,date, pdfFile);
         String itemsSummary = invoice.items.stream()
                 .map(item
                         -> item.name
