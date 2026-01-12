@@ -6,7 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -15,8 +18,8 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class GenericEmailService {
 
-    private static final Logger log
-            = LoggerFactory.getLogger(GenericEmailService.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(GenericEmailService.class);
 
     @Value("${email.api.url}")
     private String apiUrl;
@@ -55,8 +58,8 @@ public class GenericEmailService {
                 + invoiceStatus + " | "
                 + date;
 
-        String textBody
-                = "Dear " + customerName + ",\n\n"
+        String textBody =
+                "Dear " + customerName + ",\n\n"
                 + "Thank you for choosing The Tinkori Tales.\n"
                 + "Invoice Status: " + invoiceStatus + "\n\n"
                 + "Best regards,\n"
@@ -68,31 +71,21 @@ public class GenericEmailService {
         log.info("📧 Email send request started");
 
         // ===== VALIDATION =====
-        log.debug("Validating required fields");
-
         if (to == null || to.isBlank()) {
-            log.error("Recipient email missing");
             throw new IllegalArgumentException("Recipient email (to) is required");
         }
-
-        if (subject == null || subject.isBlank()) {
-            log.error("Subject missing");
+        if (subject.isBlank()) {
             throw new IllegalArgumentException("Subject is required");
         }
-
-        if (textBody == null || textBody.isBlank()) {
-            log.error("Text body missing");
+        if (textBody.isBlank()) {
             throw new IllegalArgumentException("Text body is required");
         }
-
-        log.info("Validation successful | To: {}", to);
 
         // ===== FORM DATA =====
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
-        log.debug("Adding required form fields");
         body.add("to", to);
-        body.add("from", from);
+        body.add("from", "The Tinkori Tales <" + from + ">");
         body.add("subject", subject);
         body.add("text", textBody);
 
@@ -101,66 +94,43 @@ public class GenericEmailService {
         body.add("emailUser", smtpUser);
         body.add("emailPassword", smtpPassword);
 
-        // ===== OPTIONAL CC =====
+        // OPTIONAL CC
         if (cc != null && !cc.isBlank()) {
-            log.debug("Adding CC recipients");
             for (String c : cc.split(",")) {
                 body.add("cc", c.trim());
-                log.debug("CC added: {}", c.trim());
             }
-        } else {
-            log.debug("No CC configured");
         }
 
-        // ===== OPTIONAL BCC =====
+        // OPTIONAL BCC
         if (bcc != null && !bcc.isBlank()) {
-            log.debug("Adding BCC recipients");
             for (String b : bcc.split(",")) {
                 body.add("bcc", b.trim());
-                log.debug("BCC added: {}", b.trim());
             }
-        } else {
-            log.debug("No BCC configured");
         }
 
-        // ===== ATTACHMENT =====
-        if (attachment != null) {
-            log.debug("Attachment detected");
-            if (attachment.exists()) {
-                body.add("file", new FileSystemResource(attachment));
-                log.info("Attachment added: {} ({} bytes)",
-                        attachment.getName(),
-                        attachment.length());
-            } else {
-                log.warn("Attachment file not found: {}", attachment.getAbsolutePath());
-            }
-        } else {
-            log.debug("No attachment provided");
+        // ATTACHMENT
+        if (attachment != null && attachment.exists() && attachment.length() > 0) {
+            body.add("file", new FileSystemResource(attachment));
+            log.info("Attachment added: {} ({} bytes)",
+                    attachment.getName(),
+                    attachment.length());
         }
 
         // ===== REQUEST =====
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-
-        HttpEntity<MultiValueMap<String, Object>> request
-                = new HttpEntity<>(body, headers);
-
-        log.info("Sending email request to external email service");
-        log.debug("Email API URL: {}", apiUrl);
-        log.debug("SMTP Host: {}, Port: {}", smtpHost, smtpPort);
-        log.debug("From: {}", from);
+        HttpEntity<MultiValueMap<String, Object>> request =
+                new HttpEntity<>(body, headers);
 
         RestTemplate restTemplate = new RestTemplate();
+        restTemplate.getMessageConverters().add(0, new FormHttpMessageConverter());
 
         try {
-            ResponseEntity<String> response
-                    = restTemplate.postForEntity(apiUrl, request, String.class);
+            ResponseEntity<String> response =
+                    restTemplate.postForEntity(apiUrl, request, String.class);
 
-            log.info("Email service responded with status: {}",
-                    response.getStatusCode());
+            log.info("Email service responded with status: {}", response.getStatusCode());
 
             if (!response.getStatusCode().is2xxSuccessful()) {
-                log.error("Email sending failed | Response: {}", response.getBody());
                 throw new RuntimeException("Email failed: " + response.getBody());
             }
 
