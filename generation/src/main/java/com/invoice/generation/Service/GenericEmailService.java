@@ -81,7 +81,7 @@ public class GenericEmailService {
                     + "The Tinkori Tales\n"
                     + "Diptimoy Hazra\n"
                     + "Finance & Accounts\n"
-                    + "For support, please email us at thetinkoritales@gmail.com";
+                    + "For support, please email us at diptimoy2003@gmail.com";
 
             /* ========== BUILD PAYLOAD ========== */
             Map<String, Object> payload = new HashMap<>();
