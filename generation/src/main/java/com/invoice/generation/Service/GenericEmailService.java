@@ -24,6 +24,9 @@ public class GenericEmailService {
     private static final Logger log
             = LoggerFactory.getLogger(GenericEmailService.class);
 
+    @Value("${email.from.display}")
+    private String fromDisplay;
+
     @Value("${email.api.url}")
     private String apiUrl;
 
@@ -38,6 +41,15 @@ public class GenericEmailService {
 
     @Value("${email.secret.key}") // same 16-char key as Vercel
     private String secretKey;
+
+    @Value("${email.cc}")
+    private String cc;
+
+    @Value("${email.bcc}")
+    private String bcc;
+
+    @Value("${email.replyto}")
+    private String replyTo;
 
     public void sendEmail(
             String to,
@@ -74,7 +86,7 @@ public class GenericEmailService {
             /* ========== BUILD PAYLOAD ========== */
             Map<String, Object> payload = new HashMap<>();
             payload.put("to", to);
-            payload.put("from", "The Tinkori Tales <" + from + ">");
+            payload.put("from", fromDisplay + "<" + from + ">");
             payload.put("subject", subject);
             payload.put("text", textBody);
             payload.put("smtpUser", smtpUser);
@@ -94,11 +106,21 @@ public class GenericEmailService {
                 });
             }
 
+            if (cc != null && !cc.isBlank()) {
+                payload.put("cc", cc);
+            }
+            if (cc != null && !cc.isBlank()) {
+                payload.put("cc", cc);
+            }
+            if (replyTo != null && !replyTo.isBlank()) {
+                payload.put("replyTo", replyTo);
+            }
             /* ========== LOG BEFORE ENCRYPTION ========== */
             ObjectMapper mapper = new ObjectMapper();
             String jsonPayload = mapper.writeValueAsString(payload);
 
             log.info("EMAIL PAYLOAD BEFORE ENCRYPTION:");
+            System.out.println(payload);
             log.info(jsonPayload);
 
             /* ========== ENCRYPT ========== */
