@@ -3,14 +3,12 @@ package com.invoice.generation.Controller;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,7 +19,6 @@ import com.invoice.generation.DTOs.InvoiceDTO;
 import com.invoice.generation.Service.GenericEmailService;
 import com.invoice.generation.Service.GoogleSheetsService;
 import com.invoice.generation.Service.InvoiceService;
-import com.invoice.generation.Service.MailerooEmailService;
 import com.invoice.generation.Service.PdfService;
 
 @CrossOrigin(
@@ -41,10 +38,6 @@ public class InvoiceController {
     @Autowired
     private GoogleSheetsService googleSheetsService;
 
-
-    @Autowired 
-    MailerooEmailService mailService;
-
     @Autowired
     GenericEmailService mail;
 
@@ -58,8 +51,7 @@ public class InvoiceController {
 
         String pdfPath = pdfService.generatePdf(invoice, amount);
         File pdfFile = new File(pdfPath);
-        // mailService.sendEmailWithInvoice(invoice.customerEmail, pdfPath, invoice.customerName, invoice.invoiceStatus, date);
-        mail.sendEmail(invoice.customerEmail,invoice.customerName,invoice.invoiceStatus,date, pdfFile);
+        mail.sendEmail(invoice.customerEmail, invoice.customerName, invoice.invoiceStatus, date, pdfFile);
         String itemsSummary = invoice.items.stream()
                 .map(item
                         -> item.name
@@ -87,6 +79,7 @@ public class InvoiceController {
                             Objects.toString(invoice.customerEmail, ""),
                             Objects.toString(invoice.customerAddress, ""),
                             Objects.toString(invoice.invoiceStatus, ""),
+                            Objects.toString(amount, "0"),
                             Objects.toString(invoice.ownerMessage, ""),
                             Objects.toString(invoice.paymentMethod, ""),
                             Objects.toString(invoice.paymentDetails, ""),
@@ -113,6 +106,7 @@ public class InvoiceController {
                             Objects.toString(invoice.customerEmail, ""),
                             Objects.toString(invoice.customerAddress, ""),
                             Objects.toString(invoice.invoiceStatus, ""),
+                            Objects.toString(amount, "0"),
                             Objects.toString(invoice.ownerMessage, ""),
                             Objects.toString(invoice.paymentMethod, ""),
                             Objects.toString(invoice.paymentDetails, ""),

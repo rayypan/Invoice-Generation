@@ -61,10 +61,15 @@ public class GenericEmailService {
 
             String textBody
                     = "Dear " + customerName + ",\n\n"
-                    + "Thank you for choosing The Tinkori Tales.\n"
+                    + "Thank you for choosing The Tinkori Tales. We truly appreciate your trust in us.\n"
+                    + "Your invoice has been attached to this email.\n"
                     + "Invoice Status: " + invoiceStatus + "\n\n"
-                    + "Best regards,\n"
-                    + "The Tinkori Tales";
+                    + "We hope this brings a small smile to your day.\n\n"
+                    + "Warm regards,\n"
+                    + "The Tinkori Tales\n"
+                    + "Diptimoy Hazra\n"
+                    + "Finance & Accounts\n"
+                    + "For support, please email us at thetinkoritales@gmail.com";
 
             /* ========== BUILD PAYLOAD ========== */
             Map<String, Object> payload = new HashMap<>();
